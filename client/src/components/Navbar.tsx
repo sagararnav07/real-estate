@@ -7,7 +7,7 @@ import React from "react";
 import { Button } from "./ui/button";
 import { useGetAuthUserQuery } from "@/state/api";
 import { usePathname, useRouter } from "next/navigation";
-import { signOut } from "aws-amplify/auth";
+import { useAuth } from "@/app/(auth)/AuthContext";
 import { Bell, MessageCircle, Plus, Search } from "lucide-react";
 import {
   DropdownMenu,
@@ -21,15 +21,15 @@ import { SidebarTrigger } from "./ui/sidebar";
 
 const Navbar = () => {
   const { data: authUser } = useGetAuthUserQuery();
+  const { logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   const isDashboardPage =
     pathname.includes("/managers") || pathname.includes("/tenants");
 
-  const handleSignOut = async () => {
-    await signOut();
-    window.location.href = "/";
+  const handleSignOut = () => {
+    logout();
   };
 
   return (

@@ -1,5 +1,4 @@
 import { LucideIcon } from "lucide-react";
-import { AuthUser } from "aws-amplify/auth";
 import { Manager, Tenant, Property, Application } from "./prismaTypes";
 import { MotionProps as OriginalMotionProps } from "framer-motion";
 
@@ -131,9 +130,11 @@ declare global {
   }
 
   interface User {
-    cognitoInfo: AuthUser;
+    cognitoInfo: {
+      userId: string;
+    };
     userInfo: Tenant | Manager;
-    userRole: JsonObject | JsonPrimitive | JsonArray;
+    userRole: string;
   }
 }
 
