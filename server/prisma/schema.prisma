@@ -87,12 +87,13 @@ model Property {
   locationId        Int
   managerCognitoId  String
 
-  location     Location      @relation(fields: [locationId], references: [id])
-  manager      Manager       @relation(fields: [managerCognitoId], references: [cognitoId])
-  leases       Lease[]
-  applications Application[]
-  favoritedBy  Tenant[]      @relation("TenantFavorites")
-  tenants      Tenant[]      @relation("TenantProperties")
+  location      Location       @relation(fields: [locationId], references: [id])
+  manager       Manager        @relation(fields: [managerCognitoId], references: [cognitoId])
+  leases        Lease[]
+  applications  Application[]
+  favoritedBy   Tenant[]       @relation("TenantFavorites")
+  tenants       Tenant[]       @relation("TenantProperties")
+  conversations Conversation[]
 }
 
 model Manager {
@@ -104,6 +105,7 @@ model Manager {
   password    String?
 
   managedProperties Property[]
+  conversations     Conversation[]
 }
 
 model Tenant {
@@ -114,10 +116,11 @@ model Tenant {
   phoneNumber String
   password    String?
 
-  properties   Property[]    @relation("TenantProperties")
-  favorites    Property[]    @relation("TenantFavorites")
-  applications Application[]
-  leases       Lease[]
+  properties    Property[]     @relation("TenantProperties")
+  favorites     Property[]     @relation("TenantFavorites")
+  applications  Application[]
+  leases        Lease[]
+  conversations Conversation[]
 }
 
 model Location {
@@ -174,4 +177,41 @@ model Payment {
   leaseId       Int
 
   lease Lease @relation(fields: [leaseId], references: [id])
+}
+
+// ==================== MESSAGING MODELS ====================
+
+enum MessageStatus {
+  Sent
+  Delivered
+  Read
+}
+
+model Conversation {
+  id                Int       @id @default(autoincrement())
+  tenantCognitoId   String
+  managerCognitoId  String
+  propertyId        Int?
+  lastMessageAt     DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  
+  tenant            Tenant    @relation(fields: [tenantCognitoId], references: [cognitoId])
+  manager           Manager   @relation(fields: [managerCognitoId], references: [cognitoId])
+  property          Property? @relation(fields: [propertyId], references: [id])
+  messages          Message[]
+
+  @@unique([tenantCognitoId, managerCognitoId, propertyId])
+}
+
+model Message {
+  id              Int           @id @default(autoincrement())
+  conversationId  Int
+  senderCognitoId String
+  senderRole      String        // "tenant" or "manager"
+  content         String
+  status          MessageStatus @default(Sent)
+  createdAt       DateTime      @default(now())
+  readAt          DateTime?
+  
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }

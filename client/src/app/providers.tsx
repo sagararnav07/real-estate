@@ -2,12 +2,15 @@
 
 import StoreProvider from "@/state/redux";
 import { AuthProvider, Auth } from "./(auth)/AuthContext";
+import { SocketProvider } from "./SocketContext";
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
   return (
     <StoreProvider>
       <AuthProvider>
-        <Auth>{children}</Auth>
+        <SocketProvider>
+          <Auth>{children}</Auth>
+        </SocketProvider>
       </AuthProvider>
     </StoreProvider>
   );

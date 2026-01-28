@@ -4,12 +4,13 @@ import Navbar from "@/components/Navbar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import Sidebar from "@/components/AppSidebar";
 import { NAVBAR_HEIGHT } from "@/lib/constants";
+import Loading from "@/components/Loading";
 import React, { useEffect, useState } from "react";
 import { useGetAuthUserQuery } from "@/state/api";
 import { usePathname, useRouter } from "next/navigation";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const { data: authUser, isLoading: authLoading } = useGetAuthUserQuery();
+  const { data: authUser, isLoading: authLoading, isError } = useGetAuthUserQuery();
   const router = useRouter();
   const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(true);
@@ -33,12 +34,26 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     }
   }, [authUser, router, pathname]);
 
-  if (authLoading || isLoading) return <>Loading...</>;
+  // Handle authentication error
+  useEffect(() => {
+    if (isError && !authLoading) {
+      router.push("/signin");
+    }
+  }, [isError, authLoading, router]);
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-primary-100 dark:bg-gray-900">
+        <Loading />
+      </div>
+    );
+  }
+  
   if (!authUser?.userRole) return null;
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen w-full bg-primary-100">
+      <div className="min-h-screen w-full bg-primary-100 dark:bg-gray-900 transition-colors">
         <Navbar />
         <div style={{ marginTop: `${NAVBAR_HEIGHT}px` }}>
           <main className="flex">

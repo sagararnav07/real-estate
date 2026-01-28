@@ -29,7 +29,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   if (authLoading || isLoading) return <>Loading...</>;
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full bg-white dark:bg-gray-900 transition-colors">
       <Navbar />
       <main
         className={`h-full flex w-full flex-col`}

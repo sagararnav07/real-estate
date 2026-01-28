@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useAuth } from "../AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Check, X } from "lucide-react";
+
+// Password validation rules
+const PASSWORD_RULES = [
+  { id: "length", label: "At least 8 characters", test: (p: string) => p.length >= 8 },
+  { id: "uppercase", label: "One uppercase letter", test: (p: string) => /[A-Z]/.test(p) },
+  { id: "lowercase", label: "One lowercase letter", test: (p: string) => /[a-z]/.test(p) },
+  { id: "number", label: "One number", test: (p: string) => /\d/.test(p) },
+];
 
 const SignUpPage = () => {
   const [name, setName] = useState("");
@@ -20,17 +29,38 @@ const SignUpPage = () => {
   const { register } = useAuth();
   const router = useRouter();
 
+  // Password strength validation
+  const passwordValidation = useMemo(() => {
+    return PASSWORD_RULES.map(rule => ({
+      ...rule,
+      passed: rule.test(password),
+    }));
+  }, [password]);
+
+  const isPasswordValid = passwordValidation.every(rule => rule.passed);
+  const doPasswordsMatch = password === confirmPassword && confirmPassword.length > 0;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
+    if (!name.trim()) {
+      setError("Name is required");
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+    if (!email.trim()) {
+      setError("Email is required");
+      return;
+    }
+
+    if (!isPasswordValid) {
+      setError("Please meet all password requirements");
+      return;
+    }
+
+    if (!doPasswordsMatch) {
+      setError("Passwords do not match");
       return;
     }
 
@@ -39,18 +69,19 @@ const SignUpPage = () => {
     try {
       await register(email, password, name, role);
       router.push("/");
-    } catch (err: any) {
-      setError(err.message || "Failed to sign up");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to sign up";
+      setError(message);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-primary-100">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-primary-100 dark:bg-gray-950 p-4">
+      <div className="bg-white dark:bg-gray-900 p-8 rounded-lg shadow-lg dark:shadow-gray-900/50 w-full max-w-md border border-transparent dark:border-gray-800">
         <div className="mb-7">
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             RENT
             <span className="text-secondary-500 font-light">IFUL</span>
           </h1>
@@ -61,7 +92,7 @@ const SignUpPage = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+            <div className="bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 p-3 rounded-md text-sm border border-transparent dark:border-red-900/50">
               {error}
             </div>
           )}
@@ -99,7 +130,24 @@ const SignUpPage = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              className={password.length > 0 ? (isPasswordValid ? "border-green-500" : "border-yellow-500") : ""}
             />
+            {/* Password strength indicators */}
+            {password.length > 0 && (
+              <div className="grid grid-cols-2 gap-1 mt-2">
+                {passwordValidation.map((rule) => (
+                  <div
+                    key={rule.id}
+                    className={`flex items-center gap-1 text-xs ${
+                      rule.passed ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                    }`}
+                  >
+                    {rule.passed ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                    {rule.label}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -111,7 +159,11 @@ const SignUpPage = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              className={confirmPassword.length > 0 ? (doPasswordsMatch ? "border-green-500" : "border-red-500") : ""}
             />
+            {confirmPassword.length > 0 && !doPasswordsMatch && (
+              <p className="text-xs text-red-500 mt-1">Passwords do not match</p>
+            )}
           </div>
 
           <div className="space-y-2">

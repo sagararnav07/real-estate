@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 import { Button } from "./ui/button";
-import { useGetAuthUserQuery } from "@/state/api";
+import { useGetAuthUserQuery, useGetUnreadCountQuery } from "@/state/api";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/app/(auth)/AuthContext";
 import { Bell, MessageCircle, Plus, Search } from "lucide-react";
@@ -18,9 +18,14 @@ import {
 } from "./ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { SidebarTrigger } from "./ui/sidebar";
+import { ThemeToggle } from "./ThemeToggle";
 
 const Navbar = () => {
   const { data: authUser } = useGetAuthUserQuery();
+  const { data: unreadData } = useGetUnreadCountQuery(undefined, {
+    skip: !authUser,
+    pollingInterval: 30000, // Poll every 30 seconds
+  });
   const { logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -31,6 +36,13 @@ const Navbar = () => {
   const handleSignOut = () => {
     logout();
   };
+
+  const unreadCount = unreadData?.unreadCount || 0;
+
+  // Get messages page URL based on user role
+  const messagesUrl = authUser?.userRole?.toLowerCase() === "manager" 
+    ? "/managers/messages" 
+    : "/tenants/messages";
 
   return (
     <div
@@ -99,16 +111,43 @@ const Navbar = () => {
           </p>
         )}
         <div className="flex items-center gap-5">
+          <ThemeToggle />
           {authUser ? (
             <>
-              <div className="relative hidden md:block">
-                <MessageCircle className="w-6 h-6 cursor-pointer text-primary-200 hover:text-primary-400" />
-                <span className="absolute top-0 right-0 w-2 h-2 bg-secondary-700 rounded-full"></span>
-              </div>
-              <div className="relative hidden md:block">
-                <Bell className="w-6 h-6 cursor-pointer text-primary-200 hover:text-primary-400" />
-                <span className="absolute top-0 right-0 w-2 h-2 bg-secondary-700 rounded-full"></span>
-              </div>
+              {/* Messages Link */}
+              <Link
+                href={messagesUrl}
+                className="relative hidden md:flex focus:outline-none"
+              >
+                <MessageCircle className="w-6 h-6 cursor-pointer text-primary-200 hover:text-primary-400 transition-colors" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-secondary-700 rounded-full text-[10px] flex items-center justify-center text-white font-medium px-1">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* Notifications Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger 
+                  className="relative hidden md:flex focus:outline-none"
+                  aria-label="Notifications"
+                >
+                  <Bell className="w-6 h-6 cursor-pointer text-primary-200 hover:text-primary-400 transition-colors" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-white dark:bg-gray-800 text-primary-700 dark:text-gray-200 w-80" align="end">
+                  <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="font-semibold">Notifications</h3>
+                  </div>
+                  <div className="py-8 text-center">
+                    <Bell className="w-10 h-10 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400">No notifications yet</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      You&apos;ll see updates about your applications and properties here
+                    </p>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <DropdownMenu>
                 <DropdownMenuTrigger className="flex items-center gap-2 focus:outline-none">
@@ -122,9 +161,9 @@ const Navbar = () => {
                     {authUser.userInfo?.name}
                   </p>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="bg-white text-primary-700">
+                <DropdownMenuContent className="bg-white dark:bg-gray-800 text-primary-700 dark:text-gray-200">
                   <DropdownMenuItem
-                    className="cursor-pointer hover:!bg-primary-700 hover:!text-primary-100 font-bold"
+                    className="cursor-pointer hover:!bg-primary-700 hover:!text-primary-100 dark:hover:!bg-gray-700 font-bold"
                     onClick={() =>
                       router.push(
                         authUser.userRole?.toLowerCase() === "manager"
@@ -136,9 +175,9 @@ const Navbar = () => {
                   >
                     Go to Dashboard
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-primary-200" />
+                  <DropdownMenuSeparator className="bg-primary-200 dark:bg-gray-600" />
                   <DropdownMenuItem
-                    className="cursor-pointer hover:!bg-primary-700 hover:!text-primary-100"
+                    className="cursor-pointer hover:!bg-primary-700 hover:!text-primary-100 dark:hover:!bg-gray-700"
                     onClick={() =>
                       router.push(
                         `/${authUser.userRole?.toLowerCase()}s/settings`,
@@ -149,8 +188,11 @@ const Navbar = () => {
                     Settings
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    className="cursor-pointer hover:!bg-primary-700 hover:!text-primary-100"
-                    onClick={handleSignOut}
+                    className="cursor-pointer hover:!bg-primary-700 hover:!text-primary-100 dark:hover:!bg-gray-700"
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleSignOut();
+                    }}
                   >
                     Sign out
                   </DropdownMenuItem>

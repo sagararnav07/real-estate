@@ -86,7 +86,7 @@ export const CustomFormField: React.FC<FormFieldProps> = ({
             placeholder={placeholder}
             {...field}
             rows={3}
-            className={`border-gray-200 p-4 ${inputClassName}`}
+            className={`border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-4 ${inputClassName}`}
           />
         );
       case "select":
@@ -97,16 +97,16 @@ export const CustomFormField: React.FC<FormFieldProps> = ({
             onValueChange={field.onChange}
           >
             <SelectTrigger
-              className={`w-full border-gray-200 p-4 ${inputClassName}`}
+              className={`w-full border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-4 ${inputClassName}`}
             >
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
-            <SelectContent className="w-full border-gray-200 shadow">
+            <SelectContent className="w-full border-gray-200 dark:border-gray-600 dark:bg-gray-800 shadow">
               {options?.map((option) => (
                 <SelectItem
                   key={option.value}
                   value={option.value}
-                  className={`cursor-pointer hover:!bg-gray-100 hover:!text-customgreys-darkGrey`}
+                  className={`cursor-pointer hover:!bg-gray-100 dark:hover:!bg-gray-700 hover:!text-customgreys-darkGrey dark:text-white`}
                 >
                   {option.label}
                 </SelectItem>
@@ -123,7 +123,7 @@ export const CustomFormField: React.FC<FormFieldProps> = ({
               id={name}
               className={`text-customgreys-dirtyGrey ${inputClassName}`}
             />
-            <FormLabel htmlFor={name} className={labelClassName}>
+            <FormLabel htmlFor={name} className={`dark:text-gray-200 ${labelClassName}`}>
               {label}
             </FormLabel>
           </div>
@@ -147,7 +147,7 @@ export const CustomFormField: React.FC<FormFieldProps> = ({
             type="number"
             placeholder={placeholder}
             {...field}
-            className={`border-gray-200 p-4 ${inputClassName}`}
+            className={`border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-4 ${inputClassName}`}
             disabled={disabled}
           />
         );
@@ -166,7 +166,7 @@ export const CustomFormField: React.FC<FormFieldProps> = ({
             type={type}
             placeholder={placeholder}
             {...field}
-            className={`border-gray-200 p-4 ${inputClassName}`}
+            className={`border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white p-4 ${inputClassName}`}
             disabled={disabled}
           />
         );
@@ -186,7 +186,7 @@ export const CustomFormField: React.FC<FormFieldProps> = ({
         >
           {type !== "switch" && (
             <div className="flex justify-between items-center">
-              <FormLabel className={`text-sm ${labelClassName}`}>
+              <FormLabel className={`text-sm dark:text-gray-200 ${labelClassName}`}>
                 {label}
               </FormLabel>
 

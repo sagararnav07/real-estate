@@ -1,6 +1,7 @@
 import { Mail, MapPin, PhoneCall } from "lucide-react";
 import Image from "next/image";
 import React, { useState } from "react";
+import { getImageUrl } from "@/lib/utils";
 
 const ApplicationCard = ({
   application,
@@ -8,7 +9,7 @@ const ApplicationCard = ({
   children,
 }: ApplicationCardProps) => {
   const [imgSrc, setImgSrc] = useState(
-    application.property.photoUrls?.[0] || "/placeholder.jpg"
+    getImageUrl(application.property.photoUrls?.[0])
   );
 
   const statusColor =

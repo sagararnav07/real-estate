@@ -3,14 +3,33 @@ import { AmenityIcons, HighlightIcons } from "@/lib/constants";
 import { formatEnumString } from "@/lib/utils";
 import { useGetPropertyQuery } from "@/state/api";
 import { HelpCircle } from "lucide-react";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 const PropertyDetails = ({ propertyId }: PropertyDetailsProps) => {
+  const [userCoords, setUserCoords] = useState<{ lat?: number; lng?: number }>({});
+
+  // Get user coordinates from localStorage on mount
+  useEffect(() => {
+    const savedCoords = localStorage.getItem("userCoordinates");
+    if (savedCoords) {
+      try {
+        const parsed = JSON.parse(savedCoords);
+        setUserCoords({ lat: parsed.latitude, lng: parsed.longitude });
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+  }, []);
+
   const {
     data: property,
     isError,
     isLoading,
-  } = useGetPropertyQuery(propertyId);
+  } = useGetPropertyQuery({
+    id: propertyId,
+    latitude: userCoords.lat,
+    longitude: userCoords.lng,
+  });
 
   if (isLoading) return <>Loading...</>;
   if (isError || !property) {

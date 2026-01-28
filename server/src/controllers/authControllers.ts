@@ -1,47 +1,48 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import prisma from "../lib/prisma";
+import { validateRegisterInput, validateLoginInput } from "../lib/validation";
 
-const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_EXPIRY: SignOptions["expiresIn"] = (process.env.JWT_EXPIRY || "7d") as SignOptions["expiresIn"];
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password, name, role } = req.body;
 
-    if (!email || !password || !name || !role) {
-      res.status(400).json({ message: "All fields are required" });
+    // Validate input
+    const validationError = validateRegisterInput({ email, password, name, role });
+    if (validationError) {
+      res.status(400).json({ message: validationError });
       return;
     }
 
-    if (!["tenant", "manager"].includes(role.toLowerCase())) {
-      res.status(400).json({ message: "Role must be 'tenant' or 'manager'" });
-      return;
-    }
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedRole = role.toLowerCase();
 
     // Check if user already exists
-    const existingTenant = await prisma.tenant.findUnique({ where: { email } });
-    const existingManager = await prisma.manager.findUnique({ where: { email } });
+    const existingTenant = await prisma.tenant.findUnique({ where: { email: normalizedEmail } });
+    const existingManager = await prisma.manager.findUnique({ where: { email: normalizedEmail } });
 
     if (existingTenant || existingManager) {
       res.status(400).json({ message: "User with this email already exists" });
       return;
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password with appropriate cost factor
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Generate unique ID
     const cognitoId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     let user;
-    if (role.toLowerCase() === "tenant") {
+    if (normalizedRole === "tenant") {
       user = await prisma.tenant.create({
         data: {
           cognitoId,
-          name,
-          email,
+          name: name.trim(),
+          email: normalizedEmail,
           phoneNumber: "",
           password: hashedPassword,
         },
@@ -50,8 +51,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       user = await prisma.manager.create({
         data: {
           cognitoId,
-          name,
-          email,
+          name: name.trim(),
+          email: normalizedEmail,
           phoneNumber: "",
           password: hashedPassword,
         },
@@ -63,10 +64,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       {
         userId: user.cognitoId,
         email: user.email,
-        role: role.toLowerCase(),
+        role: normalizedRole,
       },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: JWT_EXPIRY }
     );
 
     res.status(201).json({
@@ -75,11 +76,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         userId: user.cognitoId,
         email: user.email,
         name: user.name,
-        role: role.toLowerCase(),
+        role: normalizedRole,
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ message: `Error registering user: ${error.message}` });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ message: `Error registering user: ${message}` });
   }
 };
 
@@ -87,18 +89,22 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      res.status(400).json({ message: "Email and password are required" });
+    // Validate input
+    const validationError = validateLoginInput({ email, password });
+    if (validationError) {
+      res.status(400).json({ message: validationError });
       return;
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Check tenant first
-    let user = await prisma.tenant.findUnique({ where: { email } });
+    let user = await prisma.tenant.findUnique({ where: { email: normalizedEmail } });
     let role = "tenant";
 
     // If not found, check manager
     if (!user) {
-      user = await prisma.manager.findUnique({ where: { email } });
+      user = await prisma.manager.findUnique({ where: { email: normalizedEmail } });
       role = "manager";
     }
 
@@ -107,8 +113,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // Check if user has a password set
+    if (!user.password) {
+      res.status(401).json({ message: "Invalid email or password" });
+      return;
+    }
+
     // Check password
-    const isValidPassword = await bcrypt.compare(password, user.password || "");
+    const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       res.status(401).json({ message: "Invalid email or password" });
       return;
@@ -122,7 +134,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         role,
       },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: JWT_EXPIRY }
     );
 
     res.json({
@@ -134,8 +146,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         role,
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ message: `Error logging in: ${error.message}` });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    res.status(500).json({ message: `Error logging in: ${message}` });
   }
 };
 
@@ -178,7 +191,7 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
       role: decoded.role,
       userInfo: user,
     });
-  } catch (error: any) {
+  } catch {
     res.status(401).json({ message: "Invalid token" });
   }
 };

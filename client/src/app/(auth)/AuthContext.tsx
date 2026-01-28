@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { api } from "@/state/api";
 
 interface AuthUser {
   userId: string;
@@ -131,10 +132,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAuthData(data.token, data.user);
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     clearAuthData();
-    router.push("/");
-  };
+    // Reset RTK Query cache to clear auth user data
+    api.util.resetApiState();
+    // Use only window.location.href to avoid double navigation
+    window.location.href = "/";
+  }, [clearAuthData]);
 
   return (
     <AuthContext.Provider

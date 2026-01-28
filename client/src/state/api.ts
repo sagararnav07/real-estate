@@ -10,8 +10,8 @@ import {
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { FiltersState } from ".";
 
-// Helper to get token from localStorage
-const getAuthToken = () => {
+// Helper to get token from localStorage - called fresh on every request
+const getAuthToken = (): string | null => {
   if (typeof window !== "undefined") {
     return localStorage.getItem("auth_token");
   }
@@ -38,6 +38,9 @@ export const api = createApi({
     "Leases",
     "Payments",
     "Applications",
+    "Conversations",
+    "Messages",
+    "UnreadCount",
   ],
   endpoints: (build) => ({
     getAuthUser: build.query<User, void>({
@@ -110,9 +113,17 @@ export const api = createApi({
       },
     }),
 
-    getProperty: build.query<Property, number>({
-      query: (id) => `properties/${id}`,
-      providesTags: (result, error, id) => [{ type: "PropertyDetails", id }],
+    getProperty: build.query<Property, { id: number; latitude?: number; longitude?: number }>({
+      query: ({ id, latitude, longitude }) => {
+        const params: Record<string, string> = {};
+        if (latitude !== undefined) params.latitude = latitude.toString();
+        if (longitude !== undefined) params.longitude = longitude.toString();
+        return {
+          url: `properties/${id}`,
+          params: Object.keys(params).length > 0 ? params : undefined,
+        };
+      },
+      providesTags: (result, error, { id }) => [{ type: "PropertyDetails", id }],
       async onQueryStarted(_, { queryFulfilled }) {
         await withToast(queryFulfilled, {
           error: "Failed to load property details.",
@@ -258,6 +269,20 @@ export const api = createApi({
       },
     }),
 
+    deleteProperty: build.mutation<{ message: string }, number>({
+      query: (propertyId) => ({
+        url: `properties/${propertyId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: () => [{ type: "Properties", id: "LIST" }],
+      async onQueryStarted(_, { queryFulfilled }) {
+        await withToast(queryFulfilled, {
+          success: "Property deleted successfully!",
+          error: "Failed to delete property.",
+        });
+      },
+    }),
+
     // lease related enpoints
     getLeases: build.query<Lease[], number>({
       query: () => "leases",
@@ -285,6 +310,16 @@ export const api = createApi({
       async onQueryStarted(_, { queryFulfilled }) {
         await withToast(queryFulfilled, {
           error: "Failed to fetch payment info.",
+        });
+      },
+    }),
+
+    getPropertyPayments: build.query<Payment[], number>({
+      query: (propertyId) => `properties/${propertyId}/payments`,
+      providesTags: ["Payments"],
+      async onQueryStarted(_, { queryFulfilled }) {
+        await withToast(queryFulfilled, {
+          error: "Failed to fetch property payments.",
         });
       },
     }),
@@ -345,8 +380,82 @@ export const api = createApi({
         });
       },
     }),
+
+    // Message related endpoints
+    getConversations: build.query<Conversation[], void>({
+      query: () => "messages/conversations",
+      providesTags: ["Conversations"],
+    }),
+
+    getOrCreateConversation: build.mutation<
+      Conversation,
+      { otherUserId: string; propertyId?: number }
+    >({
+      query: (body) => ({
+        url: "messages/conversations",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Conversations"],
+    }),
+
+    getMessages: build.query<
+      { messages: Message[]; hasMore: boolean; nextCursor: number | null },
+      { conversationId: number; cursor?: number; limit?: number }
+    >({
+      query: ({ conversationId, cursor, limit = 50 }) => ({
+        url: `messages/conversations/${conversationId}/messages`,
+        params: { cursor, limit },
+      }),
+      providesTags: (result, error, { conversationId }) => [
+        { type: "Messages", id: conversationId },
+      ],
+    }),
+
+    sendMessage: build.mutation<Message, { conversationId: number; content: string }>({
+      query: (body) => ({
+        url: "messages/send",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: (result, error, { conversationId }) => [
+        { type: "Messages", id: conversationId },
+        "Conversations",
+      ],
+    }),
+
+    getUnreadCount: build.query<{ unreadCount: number }, void>({
+      query: () => "messages/unread-count",
+      providesTags: ["UnreadCount"],
+    }),
   }),
 });
+
+// Types for messaging
+export interface Conversation {
+  id: number;
+  tenantCognitoId: string;
+  managerCognitoId: string;
+  propertyId: number | null;
+  lastMessageAt: string;
+  createdAt: string;
+  tenant: { id: number; name: string; email: string; cognitoId: string };
+  manager: { id: number; name: string; email: string; cognitoId: string };
+  property: { id: number; name: string; photoUrls: string[] } | null;
+  messages: Message[];
+  unreadCount: number;
+}
+
+export interface Message {
+  id: number;
+  conversationId: number;
+  senderCognitoId: string;
+  senderRole: string;
+  content: string;
+  status: "Sent" | "Delivered" | "Read";
+  createdAt: string;
+  readAt: string | null;
+}
 
 export const {
   useGetAuthUserQuery,
@@ -363,7 +472,15 @@ export const {
   useGetLeasesQuery,
   useGetPropertyLeasesQuery,
   useGetPaymentsQuery,
+  useGetPropertyPaymentsQuery,
   useGetApplicationsQuery,
   useUpdateApplicationStatusMutation,
   useCreateApplicationMutation,
+  useDeletePropertyMutation,
+  // Message hooks
+  useGetConversationsQuery,
+  useGetOrCreateConversationMutation,
+  useGetMessagesQuery,
+  useSendMessageMutation,
+  useGetUnreadCountQuery,
 } = api;

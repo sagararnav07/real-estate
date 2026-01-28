@@ -2,6 +2,7 @@
 
 import Header from "@/components/Header";
 import Loading from "@/components/Loading";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   Table,
   TableBody,
@@ -10,29 +11,69 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import {
-  useGetPaymentsQuery,
+  useGetPropertyPaymentsQuery,
   useGetPropertyLeasesQuery,
   useGetPropertyQuery,
+  useDeletePropertyMutation,
 } from "@/state/api";
-import { ArrowDownToLine, ArrowLeft, Check, Download } from "lucide-react";
+import { ArrowLeft, Check, Trash2, XCircle, Building2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import React from "react";
+import { toast } from "sonner";
 
 const PropertyTenants = () => {
   const { id } = useParams();
+  const router = useRouter();
   const propertyId = Number(id);
 
-  const { data: property, isLoading: propertyLoading } =
-    useGetPropertyQuery(propertyId);
+  const { data: property, isLoading: propertyLoading, isError: propertyError } =
+    useGetPropertyQuery({ id: propertyId });
   const { data: leases, isLoading: leasesLoading } =
     useGetPropertyLeasesQuery(propertyId);
   const { data: payments, isLoading: paymentsLoading } =
-    useGetPaymentsQuery(propertyId);
+    useGetPropertyPaymentsQuery(propertyId);
+  const [deleteProperty, { isLoading: isDeleting }] = useDeletePropertyMutation();
+
+  const handleDeleteProperty = async () => {
+    try {
+      await deleteProperty(propertyId).unwrap();
+      toast.success("Property deleted successfully");
+      router.push("/managers/properties");
+    } catch (error) {
+      console.error("Failed to delete property:", error);
+      toast.error("Failed to delete property. Please try again.");
+    }
+  };
 
   if (propertyLoading || leasesLoading || paymentsLoading) return <Loading />;
+
+  if (propertyError || !property) {
+    return (
+      <div className="dashboard-container">
+        <Link
+          href="/managers/properties"
+          className="flex items-center mb-4 hover:text-primary-500"
+          scroll={false}
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          <span>Back to Properties</span>
+        </Link>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <XCircle className="w-16 h-16 text-red-400 mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Property Not Found
+          </h3>
+          <p className="text-muted-foreground">
+            This property may have been deleted or you don&apos;t have permission to view it.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const getCurrentMonthPaymentStatus = (leaseId: number) => {
     const currentDate = new Date();
@@ -50,38 +91,47 @@ const PropertyTenants = () => {
       {/* Back to properties page */}
       <Link
         href="/managers/properties"
-        className="flex items-center mb-4 hover:text-primary-500"
+        className="flex items-center mb-4 hover:text-primary-500 transition-colors"
         scroll={false}
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
         <span>Back to Properties</span>
       </Link>
 
-      <Header
-        title={property?.name || "My Property"}
-        subtitle="Manage tenants and leases for this property"
-      />
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
+        <Header
+          title={property?.name || "My Property"}
+          subtitle="Manage tenants and leases for this property"
+        />
+        <ConfirmDialog
+          trigger={
+            <Button
+              variant="destructive"
+              disabled={isDeleting}
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              {isDeleting ? "Deleting..." : "Delete Property"}
+            </Button>
+          }
+          title="Delete Property"
+          description={`Are you sure you want to delete "${property?.name}"? This will also remove all associated leases and applications. This action cannot be undone.`}
+          confirmText="Delete Property"
+          onConfirm={handleDeleteProperty}
+        />
+      </div>
 
       <div className="w-full space-y-6">
-        <div className="mt-8 bg-white rounded-xl shadow-md overflow-hidden p-6">
-          <div className="flex justify-between items-center mb-4">
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden p-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
             <div>
-              <h2 className="text-2xl font-bold mb-1">Tenants Overview</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-2xl font-bold mb-1 text-gray-900 dark:text-white">Tenants Overview</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Manage and view all tenants for this property.
               </p>
             </div>
-            <div>
-              <button
-                className={`bg-white border border-gray-300 text-gray-700 py-2
-              px-4 rounded-md flex items-center justify-center hover:bg-primary-700 hover:text-primary-50`}
-              >
-                <Download className="w-5 h-5 mr-2" />
-                <span>Download All</span>
-              </button>
-            </div>
           </div>
-          <hr className="mt-4 mb-1" />
+          <hr className="mt-4 mb-1 border-gray-200 dark:border-gray-700" />
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
